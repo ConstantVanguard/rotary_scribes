@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planning des scribes — Rotary Club Rhode-Saint-Genèse</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --bleu: #17458F;
+    --or: #F7A81B;
+    --papier: #FDFCF9;
+    --encre: #1B2A4A;
+    --fond: #EEF2F9;
+    --vert: #1E7B4D;
+    --gris: #8A93A6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--fond);
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: var(--encre);
+    font-size: 18px;
+    padding: 24px 12px 60px;
+  }
+  .conteneur { max-width: 640px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 26px; }
+  header img { display: block; margin: 0 auto 10px; width: 92px; height: 92px; }
+  .surtitre {
+    font-size: 14px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--or); font-weight: 700; margin-bottom: 4px;
+  }
+  h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 28px; margin: 0; color: var(--bleu); line-height: 1.2;
+  }
+  .carte {
+    background: var(--papier); border-radius: 14px; padding: 28px;
+    box-shadow: 0 2px 10px rgba(23,69,143,0.12); text-align: center;
+  }
+  #ecran-code { max-width: 420px; margin: 30px auto 0; }
+  #champ-code {
+    font-size: 24px; padding: 12px 16px; width: 100%; text-align: center;
+    border: 2px solid var(--bleu); border-radius: 10px; letter-spacing: 3px;
+  }
+  #champ-code.erreur { border-color: #C0392B; }
+  #msg-erreur { color: #C0392B; font-size: 17px; margin-top: 10px; display: none; }
+  .bouton-principal {
+    margin-top: 18px; font-size: 22px; padding: 14px 40px;
+    background: var(--bleu); color: white; border: none; border-radius: 10px;
+    cursor: pointer; width: 100%;
+  }
+  .intro { text-align: center; font-size: 18px; margin-bottom: 6px; }
+  .statut { text-align: center; min-height: 26px; margin-bottom: 16px;
+    font-weight: 600; color: var(--vert); }
+  .statut.erreur { color: #C0392B; }
+  .trimestre {
+    background: var(--bleu); color: white; border-radius: 10px;
+    padding: 10px 16px; margin: 26px 0 12px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .trimestre strong.titre { font-size: 18px; margin-right: 4px; }
+  .trimestre .pastille {
+    background: rgba(255,255,255,0.15); border-radius: 16px;
+    padding: 4px 12px; font-size: 16px;
+  }
+  .volet-mois {
+    width: 100%; text-align: left; font-size: 21px; font-weight: 700;
+    color: var(--bleu); background: var(--papier);
+    border: 2px solid rgba(23,69,143,0.2); border-radius: 12px;
+    padding: 14px 18px; margin-bottom: 10px; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: inherit;
+  }
+  .volet-mois.complet { border-color: var(--vert); }
+  .volet-mois .fleche { display: inline-block; transition: transform 0.15s; margin-right: 10px; }
+  .volet-mois.ouvert .fleche { transform: rotate(90deg); }
+  .coche-v {
+    color: white; background: var(--vert); border-radius: 50%;
+    width: 34px; height: 34px; display: inline-flex; align-items: center;
+    justify-content: center; font-size: 22px; font-weight: 900; flex-shrink: 0;
+  }
+  .semaine {
+    background: var(--papier); border-radius: 12px; padding: 14px 16px;
+    margin: 0 0 10px 14px; box-shadow: 0 1px 5px rgba(23,69,143,0.10);
+    border-left: 6px solid var(--or);
+  }
+  .semaine.prise { border-left-color: var(--vert); }
+  .semaine.sans-objet { border-left-color: var(--gris); opacity: 0.75; }
+  .semaine .date { font-size: 19px; font-weight: 700; margin-bottom: 10px; color: var(--bleu); }
+  .semaine .a-pourvoir { font-size: 15px; font-weight: 600; color: #A66A00; margin-left: 10px; }
+  .rangee-boutons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-scribe {
+    font-size: 18px; padding: 11px 14px; border-radius: 10px;
+    border: 2px solid rgba(23,69,143,0.33); background: white; color: var(--encre);
+    font-weight: 500; cursor: pointer; flex: 1 1 105px; min-height: 50px;
+    font-family: inherit;
+  }
+  .btn-scribe.actif { background: var(--vert); border-color: var(--vert); color: white; font-weight: 700; }
+  .btn-scribe.so { font-size: 16px; font-style: italic; color: var(--gris); border-color: rgba(138,147,166,0.4); }
+  .btn-scribe.so.actif { background: var(--gris); border-color: var(--gris); color: white; }
+  footer { text-align: center; font-size: 15px; color: #5A6B8C; margin-top: 30px; }
+  #planning { display: none; }
+</style>
+</head>
+<body>
+
+<div class="conteneur">
+  <header>
+    <img alt="Rotary International" src="data:image/png;base64,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">
+    <div class="surtitre">Planning des scribes</div>
+    <h1>Rotary Club Rhode-Saint-Genèse</h1>
+  </header>
+
+  <!-- Écran du code secret -->
+  <div id="ecran-code">
+    <div class="carte">
+      <label for="champ-code" style="display:block; font-size:20px; margin-bottom:14px;">
+        Entrez le code du club :
+      </label>
+      <input id="champ-code" type="text" autocomplete="off">
+      <p id="msg-erreur">Code incorrect. Vérifiez et réessayez.</p>
+      <button id="btn-entrer" class="bouton-principal">Entrer</button>
+    </div>
+  </div>
+
+  <!-- Planning -->
+  <div id="planning">
+    <p class="intro">
+      Ouvrez un mois, puis cliquez sur votre prénom à côté du mercredi où vous
+      rédigez le rapport. «&nbsp;Sans objet&nbsp;» signale un mercredi sans réunion.
+      Re-cliquez pour effacer votre choix.
+    </p>
+    <div id="statut" class="statut">Connexion au planning…</div>
+    <div id="liste-mois"></div>
+    <footer>
+      Planning couvert jusqu'au 31 août 2027. Les choix s'affichent
+      instantanément chez tous les scribes.
+    </footer>
+  </div>
+</div>
+
+<script type="module">
+// ============================================================
+// ÉTAPE UNIQUE DE CONFIGURATION :
+// collez ci-dessous la configuration de VOTRE projet Firebase
+// (Console Firebase > Paramètres du projet > Vos applications > Config)
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyBbrgAIVnWzYVBCdUCnJw_IWdcfhMitCVQ",
+  authDomain: "agenda-scribes.firebaseapp.com",
+  databaseURL: "https://agenda-scribes-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "agenda-scribes",
+  storageBucket: "agenda-scribes.firebasestorage.app",
+  messagingSenderId: "158722375068",
+  appId: "1:158722375068:web:8d5b0adacbff09ca579c59"
+};
+
+// Autres paramètres modifiables
+const CODE_SECRET = "scribes";
+const SCRIBES = ["Frédéric", "Jacques", "Jean", "Lucien"];
+const SANS_OBJET = "Sans objet";
+const FIN_PLANNING = "2027-08-31";
+
+// ============================================================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, remove }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const refPlanning = ref(db, "planning");
+
+let assignations = {};
+const moisOuverts = {};
+
+// ---------- Dates ----------
+function mercredisJusquaFin() {
+  const dates = [];
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  while (d.getDay() !== 3) d.setDate(d.getDate() + 1);
+  const fin = new Date(FIN_PLANNING + "T23:59:59");
+  while (d <= fin) { dates.push(new Date(d)); d.setDate(d.getDate() + 7); }
+  return dates;
+}
+const cleDate = (d) => d.toISOString().slice(0, 10);
+const cleMois = (d) => cleDate(d).slice(0, 7);
+const maj = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const formatJour = (d) => maj(d.toLocaleDateString("fr-BE",
+  { weekday: "long", day: "numeric", month: "long" }));
+function formatMois(cle) {
+  const [an, mois] = cle.split("-").map(Number);
+  return maj(new Date(an, mois - 1, 1).toLocaleDateString("fr-BE",
+    { month: "long", year: "numeric" }));
+}
+function trimestreDe(cleM) {
+  const [an, mois] = cleM.split("-").map(Number);
+  const numero = Math.floor((mois - 1) / 3) + 1;
+  return { numero, annee: an, cle: an + "-T" + numero };
+}
+const libelleTrimestre = (t) =>
+  (t.numero === 1 ? "1er" : t.numero + "e") + " trimestre " + t.annee;
+
+const mercredis = mercredisJusquaFin();
+const parMois = {};
+mercredis.forEach((d) => {
+  const m = cleMois(d);
+  (parMois[m] = parMois[m] || []).push(d);
+});
+const listeMois = Object.keys(parMois).sort();
+if (listeMois.length) moisOuverts[listeMois[0]] = true; // mois courant ouvert
+
+// ---------- Code secret ----------
+const champCode = document.getElementById("champ-code");
+const msgErreur = document.getElementById("msg-erreur");
+function verifierCode() {
+  if (champCode.value.trim().toLowerCase() === CODE_SECRET.toLowerCase()) {
+    document.getElementById("ecran-code").style.display = "none";
+    document.getElementById("planning").style.display = "block";
+  } else {
+    champCode.classList.add("erreur");
+    msgErreur.style.display = "block";
+  }
+}
+document.getElementById("btn-entrer").addEventListener("click", verifierCode);
+champCode.addEventListener("keydown", (e) => { if (e.key === "Enter") verifierCode(); });
+
+// ---------- Synchronisation en direct ----------
+const statut = document.getElementById("statut");
+onValue(refPlanning, (instantane) => {
+  assignations = instantane.val() || {};
+  statut.textContent = "";
+  statut.classList.remove("erreur");
+  afficher();
+}, () => {
+  statut.textContent = "Connexion impossible — vérifiez votre accès internet.";
+  statut.classList.add("erreur");
+});
+
+function choisir(dateCle, nom) {
+  const action = assignations[dateCle] === nom
+    ? remove(ref(db, "planning/" + dateCle))          // se désinscrire
+    : set(ref(db, "planning/" + dateCle), nom);       // s'inscrire
+  action.then(() => {
+    statut.textContent = "Enregistré ✓";
+    statut.classList.remove("erreur");
+    setTimeout(() => { if (statut.textContent === "Enregistré ✓") statut.textContent = ""; }, 2000);
+  }).catch(() => {
+    statut.textContent = "Erreur d'enregistrement — réessayez.";
+    statut.classList.add("erreur");
+  });
+}
+
+// ---------- Affichage ----------
+function compteurTrimestre(cleT) {
+  const compte = {};
+  SCRIBES.forEach((s) => (compte[s] = 0));
+  mercredis.forEach((d) => {
+    if (trimestreDe(cleMois(d)).cle !== cleT) return;
+    const v = assignations[cleDate(d)];
+    if (v && compte[v] !== undefined) compte[v] += 1;
+  });
+  return compte;
+}
+
+function afficher() {
+  const conteneur = document.getElementById("liste-mois");
+  conteneur.innerHTML = "";
+  let trimestrePrecedent = null;
+
+  listeMois.forEach((m) => {
+    const t = trimestreDe(m);
+
+    if (t.cle !== trimestrePrecedent) {
+      trimestrePrecedent = t.cle;
+      const compte = compteurTrimestre(t.cle);
+      const bandeau = document.createElement("div");
+      bandeau.className = "trimestre";
+      bandeau.innerHTML = "<strong class='titre'></strong>";
+      bandeau.querySelector(".titre").textContent = libelleTrimestre(t);
+      SCRIBES.forEach((s) => {
+        const p = document.createElement("span");
+        p.className = "pastille";
+        p.textContent = s + " : " + compte[s];
+        bandeau.appendChild(p);
+      });
+      conteneur.appendChild(bandeau);
+    }
+
+    const complet = parMois[m].every((d) => assignations[cleDate(d)]);
+    const volet = document.createElement("button");
+    volet.className = "volet-mois" + (complet ? " complet" : "") +
+      (moisOuverts[m] ? " ouvert" : "");
+    volet.innerHTML = "<span><span class='fleche'>▶</span><span class='nom-mois'></span></span>" +
+      (complet ? "<span class='coche-v' title='Mois complet'>V</span>" : "");
+    volet.querySelector(".nom-mois").textContent = formatMois(m);
+    volet.addEventListener("click", () => {
+      moisOuverts[m] = !moisOuverts[m];
+      afficher();
+    });
+    conteneur.appendChild(volet);
+
+    if (!moisOuverts[m]) return;
+
+    parMois[m].forEach((date) => {
+      const k = cleDate(date);
+      const assigne = assignations[k];
+      const bloc = document.createElement("div");
+      bloc.className = "semaine" +
+        (assigne === SANS_OBJET ? " sans-objet" : assigne ? " prise" : "");
+
+      const titre = document.createElement("div");
+      titre.className = "date";
+      titre.textContent = formatJour(date);
+      if (!assigne) {
+        const badge = document.createElement("span");
+        badge.className = "a-pourvoir";
+        badge.textContent = "— à pourvoir";
+        titre.appendChild(badge);
+      }
+      bloc.appendChild(titre);
+
+      const rangee = document.createElement("div");
+      rangee.className = "rangee-boutons";
+      [...SCRIBES, SANS_OBJET].forEach((nom) => {
+        const b = document.createElement("button");
+        const actif = assigne === nom;
+        b.className = "btn-scribe" + (nom === SANS_OBJET ? " so" : "") +
+          (actif ? " actif" : "");
+        b.textContent = actif ? "✓ " + nom : nom;
+        b.addEventListener("click", () => choisir(k, nom));
+        rangee.appendChild(b);
+      });
+      bloc.appendChild(rangee);
+      conteneur.appendChild(bloc);
+    });
+  });
+}
+</script>
+</body>
+</html>
