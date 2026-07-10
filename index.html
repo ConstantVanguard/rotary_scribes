@@ -80,9 +80,9 @@
     padding: 4px 12px; font-size: 16px;
   }
   .btn-export {
-    margin-left: auto; font-size: 16px; padding: 7px 14px;
+    margin-left: auto; font-size: 16px; padding: 4px 12px;
     background: var(--or); color: var(--encre); font-weight: 700;
-    border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
+    border: none; border-radius: 16px; cursor: pointer; font-family: inherit;
   }
   .volet-mois {
     width: 100%; text-align: left; font-size: 21px; font-weight: 700;
@@ -587,8 +587,8 @@ function afficher() {
       });
       const btnExport = document.createElement("button");
       btnExport.className = "btn-export";
-      btnExport.textContent = "⬇ Exporter en PDF";
-      btnExport.title = "Télécharger le récapitulatif PDF du trimestre";
+      btnExport.textContent = "Voir planning";
+      btnExport.title = "Voir le planning du trimestre : impression et PDF";
       btnExport.addEventListener("click", () =>
         exporterTrimestre(t.cle, libelleTrimestre(t)));
       bandeau.appendChild(btnExport);
