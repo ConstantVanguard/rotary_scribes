@@ -370,120 +370,183 @@ function choisir(dateCle, nom) {
   });
 }
 
-// ---------- Export trimestriel en PDF ----------
-function exporterTrimestre(cleT, libelle) {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    statut.textContent = "Export indisponible : rechargez la page puis r\u00e9essayez.";
-    statut.classList.add("erreur");
-    return;
+// ---------- Export trimestriel : visionneuse + impression + PDF ----------
+function construirePdf(cleT, libelle, donnees) {
+  if (!window.jspdf || !window.jspdf.jsPDF) return null;
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4" });
+    const largeur = 210;
+    const BLEU = [23, 69, 143], OR = [247, 168, 27], ENCRE = [27, 42, 74];
+    const GRIS = [138, 147, 166], AMBRE = [166, 106, 0];
+
+    const logo = document.querySelector("header img").src;
+    pdf.addImage(logo, "PNG", (largeur - 20) / 2, 12, 20, 20);
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9);
+    pdf.setTextColor(OR[0], OR[1], OR[2]);
+    pdf.text("P L A N N I N G   D E S   S C R I B E S", largeur / 2, 39, { align: "center" });
+    pdf.setFont("times", "bold"); pdf.setFontSize(21);
+    pdf.setTextColor(BLEU[0], BLEU[1], BLEU[2]);
+    pdf.text("Rotary Club Rhode-Saint-Gen\u00e8se", largeur / 2, 47, { align: "center" });
+    pdf.setFont("times", "italic"); pdf.setFontSize(14);
+    pdf.setTextColor(ENCRE[0], ENCRE[1], ENCRE[2]);
+    pdf.text(libelle, largeur / 2, 55, { align: "center" });
+    pdf.setFillColor(OR[0], OR[1], OR[2]);
+    pdf.roundedRect((largeur - 26) / 2, 58.5, 26, 1.4, 0.7, 0.7, "F");
+
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(10.5);
+    pdf.setTextColor(ENCRE[0], ENCRE[1], ENCRE[2]);
+    pdf.text(donnees.resume, largeur / 2, 68, { align: "center" });
+
+    const rangs = donnees.lignes.map((l) => [
+      l.date,
+      { content: l.num, styles: { halign: "center" } },
+      l.etat === "so"
+        ? { content: l.scribe, styles: { fontStyle: "italic", textColor: GRIS } }
+        : l.etat === "libre"
+        ? { content: l.scribe, styles: { fontStyle: "italic", textColor: AMBRE } }
+        : { content: l.scribe, styles: { fontStyle: "bold" } }
+    ]);
+
+    pdf.autoTable({
+      startY: 74, margin: { left: 22, right: 22 },
+      head: [["Mercredi", "N\u00b0 rapport", "Scribe"]], body: rangs, theme: "plain",
+      styles: { font: "helvetica", fontSize: 11.5, cellPadding: 3.4,
+        textColor: ENCRE, lineWidth: 0 },
+      headStyles: { fontSize: 9, fontStyle: "bold", textColor: BLEU,
+        fillColor: [238, 242, 249], halign: "left" },
+      columnStyles: { 1: { halign: "center", cellWidth: 32 } },
+      alternateRowStyles: { fillColor: [247, 249, 253] },
+      didParseCell: (d) => {
+        if (d.section === "head" && d.column.index === 1) d.cell.styles.halign = "center";
+      }
+    });
+
+    const bas = pdf.lastAutoTable.finalY + 14;
+    pdf.setDrawColor(227, 233, 244); pdf.setLineWidth(0.3);
+    pdf.line(40, bas, largeur - 40, bas);
+    pdf.setFontSize(9); pdf.setTextColor(90, 107, 140);
+    pdf.text("R\u00e9union le mercredi \u00e0 19h30 au Royal Wellington THC, avenue d'Hougoumont 15, 1180 Uccle",
+      largeur / 2, bas + 6, { align: "center" });
+    pdf.text("Document g\u00e9n\u00e9r\u00e9 le " + donnees.genere + " depuis le planning en ligne des scribes",
+      largeur / 2, bas + 11, { align: "center" });
+
+    return URL.createObjectURL(pdf.output("blob"));
+  } catch (e) {
+    return null;
   }
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const largeur = 210;
+}
 
-  const BLEU = [23, 69, 143];
-  const OR = [247, 168, 27];
-  const ENCRE = [27, 42, 74];
-  const GRIS = [138, 147, 166];
-  const AMBRE = [166, 106, 0];
-
-  // --- En-tete ---
-  const logo = document.querySelector("header img").src;
-  pdf.addImage(logo, "PNG", (largeur - 20) / 2, 12, 20, 20);
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.setTextColor(OR[0], OR[1], OR[2]);
-  pdf.text("P L A N N I N G   D E S   S C R I B E S", largeur / 2, 39, { align: "center" });
-
-  pdf.setFont("times", "bold");
-  pdf.setFontSize(21);
-  pdf.setTextColor(BLEU[0], BLEU[1], BLEU[2]);
-  pdf.text("Rotary Club Rhode-Saint-Gen\u00e8se", largeur / 2, 47, { align: "center" });
-
-  pdf.setFont("times", "italic");
-  pdf.setFontSize(14);
-  pdf.setTextColor(ENCRE[0], ENCRE[1], ENCRE[2]);
-  pdf.text(libelle, largeur / 2, 55, { align: "center" });
-
-  pdf.setFillColor(OR[0], OR[1], OR[2]);
-  pdf.roundedRect((largeur - 26) / 2, 58.5, 26, 1.4, 0.7, 0.7, "F");
-
-  // --- Resume ---
+function exporterTrimestre(cleT, libelle) {
   const numeros = calculerNumeros();
   const compte = compteurTrimestre(cleT);
+  let lignesHtml = "";
+  const lignesPdf = [];
   let nbSansObjet = 0, nbAPourvoir = 0;
-  const rangs = [];
+
   tousMercredis.forEach((d) => {
     if (trimestreDe(cleMois(d)).cle !== cleT) return;
     const k = cleDate(d);
     const nom = nomDe(assignations[k]);
     const num = numeros[k];
-    let cellule;
+    let scribeHtml, etat, scribeTxt;
     if (nom === SANS_OBJET) {
-      nbSansObjet += 1;
-      cellule = { content: "Sans objet (pas de r\u00e9union)",
-        styles: { fontStyle: "italic", textColor: GRIS } };
+      nbSansObjet += 1; etat = "so";
+      scribeTxt = "Sans objet (pas de r\u00e9union)";
+      scribeHtml = "<span class='so'>Sans objet \u2014 pas de r\u00e9union</span>";
     } else if (nom) {
-      cellule = { content: nom, styles: { fontStyle: "bold" } };
+      etat = "nom"; scribeTxt = nom;
+      scribeHtml = "<span class='scribe'>" + nom.replace(/</g, "&lt;") + "</span>";
     } else {
-      nbAPourvoir += 1;
-      cellule = { content: "\u00c0 pourvoir",
-        styles: { fontStyle: "italic", textColor: AMBRE } };
+      nbAPourvoir += 1; etat = "libre";
+      scribeTxt = "\u00c0 pourvoir";
+      scribeHtml = "<span class='libre'>\u00c0 pourvoir</span>";
     }
-    rangs.push([
-      formatJourComplet(d),
-      { content: num === null ? "-" : String(num), styles: { halign: "center" } },
-      cellule
-    ]);
+    lignesHtml += "<tr><td class='c-date'>" + formatJourComplet(d) + "</td>" +
+      "<td class='c-num'>" + (num === null ? "<span class='tiret'>\u2014</span>" : "<span class='num'>" + num + "</span>") + "</td>" +
+      "<td>" + scribeHtml + "</td></tr>";
+    lignesPdf.push({ date: formatJourComplet(d), num: num === null ? "-" : String(num),
+      scribe: scribeTxt, etat: etat });
   });
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10.5);
-  pdf.setTextColor(ENCRE[0], ENCRE[1], ENCRE[2]);
-  const resume = SCRIBES.map((sc) => sc + " : " + compte[sc]).join("   \u00b7   ") +
-    "      |      Sans objet : " + nbSansObjet + "   \u00b7   \u00c0 pourvoir : " + nbAPourvoir;
-  pdf.text(resume, largeur / 2, 68, { align: "center" });
-
-  // --- Tableau ---
-  pdf.autoTable({
-    startY: 74,
-    margin: { left: 22, right: 22 },
-    head: [["Mercredi", "N\u00b0 rapport", "Scribe"]],
-    body: rangs,
-    theme: "plain",
-    styles: {
-      font: "helvetica", fontSize: 11.5, cellPadding: 3.4,
-      textColor: ENCRE, lineColor: [227, 233, 244], lineWidth: 0
-    },
-    headStyles: {
-      fontSize: 9, fontStyle: "bold", textColor: BLEU,
-      fillColor: [238, 242, 249], halign: "left"
-    },
-    columnStyles: { 1: { halign: "center", cellWidth: 32 } },
-    alternateRowStyles: { fillColor: [247, 249, 253] },
-    didParseCell: (donnees) => {
-      if (donnees.section === "head" && donnees.column.index === 1)
-        donnees.cell.styles.halign = "center";
-    },
-    didDrawPage: () => {}
+  let puces = "";
+  SCRIBES.forEach((sc) => {
+    puces += "<span class='puce'>" + sc + "&nbsp;: <strong>" + compte[sc] + "</strong></span>";
   });
+  puces += "<span class='puce grise'>Sans objet&nbsp;: <strong>" + nbSansObjet + "</strong></span>";
+  puces += "<span class='puce ambre'>\u00c0 pourvoir&nbsp;: <strong>" + nbAPourvoir + "</strong></span>";
 
-  // --- Pied de page ---
-  const bas = pdf.lastAutoTable.finalY + 14;
-  pdf.setDrawColor(227, 233, 244);
-  pdf.setLineWidth(0.3);
-  pdf.line(40, bas, largeur - 40, bas);
   const genere = new Date().toLocaleDateString("fr-BE",
     { day: "numeric", month: "long", year: "numeric" });
-  pdf.setFontSize(9);
-  pdf.setTextColor(90, 107, 140);
-  pdf.text("R\u00e9union le mercredi \u00e0 19h30 au Royal Wellington THC, avenue d'Hougoumont 15, 1180 Uccle",
-    largeur / 2, bas + 6, { align: "center" });
-  pdf.text("Document g\u00e9n\u00e9r\u00e9 le " + genere + " depuis le planning en ligne des scribes",
-    largeur / 2, bas + 11, { align: "center" });
+  const resumePdf = SCRIBES.map((sc) => sc + " : " + compte[sc]).join("   \u00b7   ") +
+    "      |      Sans objet : " + nbSansObjet + "   \u00b7   \u00c0 pourvoir : " + nbAPourvoir;
+  const nomPdf = "Rotary_scribes_" + libelle.replace(/ /g, "_") + ".pdf";
 
-  pdf.save("Rotary_scribes_" + libelle.replace(/ /g, "_") + ".pdf");
+  const urlPdf = construirePdf(cleT, libelle, {
+    lignes: lignesPdf, resume: resumePdf, genere: genere });
+
+  const boutonPdf = urlPdf
+    ? "<a id='btn-pdf' href='" + urlPdf + "' download='" + nomPdf + "'>\u2b07 T\u00e9l\u00e9charger le PDF</a>"
+    : "<span class='note-pdf'>PDF indisponible \u2014 rechargez la page du planning et r\u00e9essayez.</span>";
+
+  const doc = "<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>" +
+    "<title>Scribes \u2014 " + libelle + "</title><style>" +
+    "body{font-family:Georgia,'Times New Roman',serif;color:#1B2A4A;max-width:720px;margin:0 auto;padding:44px 28px 30px;background:white}" +
+    ".entete{text-align:center}" +
+    ".entete img{width:74px;height:74px;margin-bottom:10px}" +
+    ".surtitre{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#F7A81B;font-weight:700;margin-bottom:4px}" +
+    "h1{color:#17458F;font-size:27px;margin:0;line-height:1.2}" +
+    "h2{color:#1B2A4A;font-size:20px;font-weight:400;font-style:italic;margin:8px 0 0}" +
+    ".filet{width:90px;height:4px;background:#F7A81B;margin:16px auto 0;border-radius:2px}" +
+    ".actions{text-align:center;margin:28px 0 6px}" +
+    ".actions button,.actions a{display:inline-block;font-family:'Segoe UI',Arial,sans-serif;font-size:18px;padding:12px 28px;margin:6px 8px;border:none;border-radius:10px;cursor:pointer;text-decoration:none}" +
+    "#btn-imprimer{background:#17458F;color:white;font-weight:700}" +
+    "#btn-pdf{background:#F7A81B;color:#1B2A4A;font-weight:700}" +
+    ".note-pdf{font-family:'Segoe UI',Arial,sans-serif;font-size:14px;color:#8A93A6;font-style:italic}" +
+    ".resume{font-family:'Segoe UI',Arial,sans-serif;text-align:center;margin:22px 0 6px}" +
+    ".puce{display:inline-block;border:1px solid #C9D4EA;border-radius:18px;padding:5px 14px;margin:4px 4px;font-size:15px;color:#1B2A4A}" +
+    ".puce.grise{color:#8A93A6;border-color:#D8DDE7}" +
+    ".puce.ambre{color:#A66A00;border-color:#EBD2A6}" +
+    "table{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;border-collapse:collapse;width:100%;margin-top:24px}" +
+    "th{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:#17458F;text-align:left;padding:10px 14px;border-bottom:2px solid #17458F}" +
+    "td{padding:13px 14px;border-bottom:1px solid #E3E9F4;font-size:16px}" +
+    "tr:nth-child(even) td{background:#F7F9FD}" +
+    ".c-date{font-weight:600}" +
+    ".c-num{text-align:center;width:110px}" +
+    ".num{display:inline-block;background:rgba(247,168,27,0.16);border-radius:14px;padding:2px 13px;font-weight:600}" +
+    ".tiret{color:#B8C1D4}" +
+    ".scribe{font-weight:700}" +
+    ".libre{color:#A66A00;font-style:italic}" +
+    ".so{color:#8A93A6;font-style:italic}" +
+    ".pied{margin-top:38px;padding-top:14px;border-top:1px solid #E3E9F4;text-align:center;font-size:13px;color:#5A6B8C;font-family:'Segoe UI',Arial,sans-serif}" +
+    "@media print{.actions{display:none}body{padding:10px 0}@page{margin:16mm}}" +
+    "</style></head><body>" +
+    "<div class='entete'>" +
+    "<img src='" + document.querySelector("header img").src + "' alt='Rotary International'>" +
+    "<div class='surtitre'>Planning des scribes</div>" +
+    "<h1>Rotary Club Rhode-Saint-Gen\u00e8se</h1>" +
+    "<h2>" + libelle + "</h2>" +
+    "<div class='filet'></div>" +
+    "</div>" +
+    "<div class='actions'>" +
+    "<button id='btn-imprimer' onclick='window.print()'>\ud83d\udda8 Imprimer</button>" +
+    boutonPdf +
+    "</div>" +
+    "<div class='resume'>" + puces + "</div>" +
+    "<table><tr><th>Mercredi</th><th style='text-align:center'>N\u00b0 rapport</th><th>Scribe</th></tr>" +
+    lignesHtml + "</table>" +
+    "<p class='pied'>R\u00e9union le mercredi \u00e0 19h30 au Royal Wellington THC, avenue d\u2019Hougoumont 15, 1180 Uccle<br>" +
+    "Document g\u00e9n\u00e9r\u00e9 le " + genere + " depuis le planning en ligne des scribes</p>" +
+    "</body></html>";
+
+  const fenetre = window.open("", "_blank");
+  if (!fenetre) {
+    statut.textContent = "Fen\u00eatre bloqu\u00e9e : autorisez les pop-ups pour ce site.";
+    statut.classList.add("erreur");
+    return;
+  }
+  fenetre.document.write(doc);
+  fenetre.document.close();
 }
 
 // ---------- Affichage ----------
