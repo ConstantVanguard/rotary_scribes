@@ -14,6 +14,7 @@
     --fond: #EEF2F9;
     --vert: #1E7B4D;
     --gris: #8A93A6;
+    --orange: #C05A00;
   }
   * { box-sizing: border-box; }
   body {
@@ -56,6 +57,16 @@
   .statut { text-align: center; min-height: 26px; margin-bottom: 16px;
     font-weight: 600; color: var(--vert); }
   .statut.erreur { color: #C0392B; }
+  #bandeau-admin {
+    display: none; background: #FFF3E0; border: 2px solid var(--orange);
+    color: var(--orange); border-radius: 10px; padding: 10px 16px;
+    margin-bottom: 16px; font-weight: 600; text-align: center;
+  }
+  #bandeau-admin button {
+    margin-left: 12px; font-size: 15px; padding: 5px 14px;
+    background: var(--orange); color: white; border: none; border-radius: 8px;
+    cursor: pointer; font-family: inherit;
+  }
   .trimestre {
     background: var(--bleu); color: white; border-radius: 10px;
     padding: 10px 16px; margin: 26px 0 12px;
@@ -65,6 +76,11 @@
   .trimestre .pastille {
     background: rgba(255,255,255,0.15); border-radius: 16px;
     padding: 4px 12px; font-size: 16px;
+  }
+  .btn-export {
+    margin-left: auto; font-size: 16px; padding: 7px 14px;
+    background: var(--or); color: var(--encre); font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer; font-family: inherit;
   }
   .volet-mois {
     width: 100%; text-align: left; font-size: 21px; font-weight: 700;
@@ -90,7 +106,10 @@
   .semaine.prise { border-left-color: var(--vert); }
   .semaine.sans-objet { border-left-color: var(--gris); opacity: 0.75; }
   .semaine .date { font-size: 19px; font-weight: 700; margin-bottom: 10px; color: var(--bleu); }
+  .semaine .numero { font-size: 16px; font-weight: 600; color: var(--encre);
+    background: rgba(247,168,27,0.18); border-radius: 8px; padding: 2px 10px; margin-left: 10px; }
   .semaine .a-pourvoir { font-size: 15px; font-weight: 600; color: #A66A00; margin-left: 10px; }
+  .semaine .verrou { font-size: 15px; font-weight: 600; color: var(--gris); margin-left: 10px; }
   .rangee-boutons { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn-scribe {
     font-size: 18px; padding: 11px 14px; border-radius: 10px;
@@ -101,7 +120,23 @@
   .btn-scribe.actif { background: var(--vert); border-color: var(--vert); color: white; font-weight: 700; }
   .btn-scribe.so { font-size: 16px; font-style: italic; color: var(--gris); border-color: rgba(138,147,166,0.4); }
   .btn-scribe.so.actif { background: var(--gris); border-color: var(--gris); color: white; }
+  .btn-scribe:disabled { opacity: 0.55; cursor: not-allowed; }
   footer { text-align: center; font-size: 15px; color: #5A6B8C; margin-top: 30px; }
+  #lien-admin {
+    background: none; border: none; color: #5A6B8C; text-decoration: underline;
+    cursor: pointer; font-size: 15px; font-family: inherit; padding: 0;
+  }
+  #zone-admin { display: none; max-width: 340px; margin: 14px auto 0; text-align: center; }
+  #champ-admin {
+    font-size: 18px; padding: 9px 12px; width: 100%; text-align: center;
+    border: 2px solid var(--orange); border-radius: 8px;
+  }
+  #zone-admin button {
+    margin-top: 10px; font-size: 17px; padding: 9px 24px;
+    background: var(--orange); color: white; border: none; border-radius: 8px;
+    cursor: pointer; font-family: inherit; width: 100%;
+  }
+  #erreur-admin { color: #C0392B; font-size: 15px; margin-top: 8px; display: none; }
   #planning { display: none; }
 </style>
 </head>
@@ -131,22 +166,31 @@
     <p class="intro">
       Ouvrez un mois, puis cliquez sur votre prénom à côté du mercredi où vous
       rédigez le rapport. «&nbsp;Sans objet&nbsp;» signale un mercredi sans réunion.
-      Re-cliquez pour effacer votre choix.
+      Un choix reste modifiable pendant 10&nbsp;minutes, puis il est verrouillé.
     </p>
+    <div id="bandeau-admin">
+      Mode administrateur — toutes les inscriptions sont modifiables.
+      <button id="btn-quitter-admin">Quitter</button>
+    </div>
     <div id="statut" class="statut">Connexion au planning…</div>
     <div id="liste-mois"></div>
     <footer>
       Planning couvert jusqu'au 31 août 2027. Les choix s'affichent
-      instantanément chez tous les scribes.
+      instantanément chez tous les scribes. Pour corriger une inscription
+      verrouillée, contactez l'administrateur du planning.<br><br>
+      <button id="lien-admin">Mode administrateur</button>
+      <div id="zone-admin">
+        <input id="champ-admin" type="password" placeholder="Code administrateur">
+        <p id="erreur-admin">Code administrateur incorrect.</p>
+        <button id="btn-admin">Activer</button>
+      </div>
     </footer>
   </div>
 </div>
 
 <script type="module">
 // ============================================================
-// ÉTAPE UNIQUE DE CONFIGURATION :
-// collez ci-dessous la configuration de VOTRE projet Firebase
-// (Console Firebase > Paramètres du projet > Vos applications > Config)
+// Configuration Firebase du projet agenda-scribes
 // ============================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBbrgAIVnWzYVBCdUCnJw_IWdcfhMitCVQ",
@@ -158,39 +202,48 @@ const firebaseConfig = {
   appId: "1:158722375068:web:8d5b0adacbff09ca579c59"
 };
 
-// Autres paramètres modifiables
-const CODE_SECRET = "scribes";
+// Paramètres modifiables
+const CODE_SECRET = "scribes";         // Code d'accès des scribes
+const CODE_ADMIN = "wellington";       // Code administrateur — À CHANGER
 const SCRIBES = ["Frédéric", "Jacques", "Jean", "Lucien"];
 const SANS_OBJET = "Sans objet";
 const FIN_PLANNING = "2027-08-31";
+const DATE_REFERENCE = "2026-07-01";   // Mercredi de référence…
+const NUMERO_REFERENCE = 1620;         // …et son numéro de rapport
+const VERROU_MINUTES = 10;             // Délai de modification avant verrouillage
 
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, onValue, set, remove }
+import { getDatabase, ref, onValue, set, remove, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const refPlanning = ref(db, "planning");
 
 let assignations = {};
+let adminActif = false;
 const moisOuverts = {};
 
-// ---------- Dates ----------
-function mercredisJusquaFin() {
-  const dates = [];
-  const d = new Date();
-  d.setHours(12, 0, 0, 0);
-  while (d.getDay() !== 3) d.setDate(d.getDate() + 1);
-  const fin = new Date(FIN_PLANNING + "T23:59:59");
-  while (d <= fin) { dates.push(new Date(d)); d.setDate(d.getDate() + 7); }
-  return dates;
+// ---------- Lecture des enregistrements ({nom, t} ou ancien format texte) ----------
+const nomDe = (v) => (v == null ? null : typeof v === "string" ? v : v.nom || null);
+const tempsDe = (v) => (v && typeof v === "object" && v.t ? v.t : null);
+function estVerrouille(k) {
+  if (adminActif) return false;
+  const v = assignations[k];
+  if (!v) return false;
+  const t = tempsDe(v);
+  if (!t) return true; // ancien format sans horodatage : verrouillé
+  return Date.now() - t > VERROU_MINUTES * 60000;
 }
+
+// ---------- Dates ----------
 const cleDate = (d) => d.toISOString().slice(0, 10);
 const cleMois = (d) => cleDate(d).slice(0, 7);
 const maj = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const formatJour = (d) => maj(d.toLocaleDateString("fr-BE",
   { weekday: "long", day: "numeric", month: "long" }));
+const formatJourComplet = (d) => maj(d.toLocaleDateString("fr-BE",
+  { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
 function formatMois(cle) {
   const [an, mois] = cle.split("-").map(Number);
   return maj(new Date(an, mois - 1, 1).toLocaleDateString("fr-BE",
@@ -204,14 +257,40 @@ function trimestreDe(cleM) {
 const libelleTrimestre = (t) =>
   (t.numero === 1 ? "1er" : t.numero + "e") + " trimestre " + t.annee;
 
-const mercredis = mercredisJusquaFin();
+function listeMercredis() {
+  const dates = [];
+  const d = new Date(DATE_REFERENCE + "T12:00:00");
+  const fin = new Date(FIN_PLANNING + "T23:59:59");
+  while (d <= fin) { dates.push(new Date(d)); d.setDate(d.getDate() + 7); }
+  return dates;
+}
+const tousMercredis = listeMercredis();
+const aujourdHui = new Date(); aujourdHui.setHours(0, 0, 0, 0);
+const mercredisAffiches = tousMercredis.filter((d) => d >= aujourdHui);
+
 const parMois = {};
-mercredis.forEach((d) => {
+mercredisAffiches.forEach((d) => {
   const m = cleMois(d);
   (parMois[m] = parMois[m] || []).push(d);
 });
 const listeMois = Object.keys(parMois).sort();
-if (listeMois.length) moisOuverts[listeMois[0]] = true; // mois courant ouvert
+if (listeMois.length) moisOuverts[listeMois[0]] = true;
+
+// ---------- Numérotation des rapports ----------
+function calculerNumeros() {
+  const numeros = {};
+  let n = NUMERO_REFERENCE;
+  tousMercredis.forEach((d) => {
+    const k = cleDate(d);
+    if (nomDe(assignations[k]) === SANS_OBJET) {
+      numeros[k] = null;
+    } else {
+      numeros[k] = n;
+      n += 1;
+    }
+  });
+  return numeros;
+}
 
 // ---------- Code secret ----------
 const champCode = document.getElementById("champ-code");
@@ -228,9 +307,39 @@ function verifierCode() {
 document.getElementById("btn-entrer").addEventListener("click", verifierCode);
 champCode.addEventListener("keydown", (e) => { if (e.key === "Enter") verifierCode(); });
 
+// ---------- Mode administrateur ----------
+const bandeauAdmin = document.getElementById("bandeau-admin");
+const zoneAdmin = document.getElementById("zone-admin");
+const champAdmin = document.getElementById("champ-admin");
+const erreurAdmin = document.getElementById("erreur-admin");
+document.getElementById("lien-admin").addEventListener("click", () => {
+  zoneAdmin.style.display = zoneAdmin.style.display === "block" ? "none" : "block";
+  erreurAdmin.style.display = "none";
+  champAdmin.value = "";
+  if (zoneAdmin.style.display === "block") champAdmin.focus();
+});
+function activerAdmin() {
+  if (champAdmin.value.trim().toLowerCase() === CODE_ADMIN.toLowerCase()) {
+    adminActif = true;
+    bandeauAdmin.style.display = "block";
+    zoneAdmin.style.display = "none";
+    champAdmin.value = "";
+    afficher();
+  } else {
+    erreurAdmin.style.display = "block";
+  }
+}
+document.getElementById("btn-admin").addEventListener("click", activerAdmin);
+champAdmin.addEventListener("keydown", (e) => { if (e.key === "Enter") activerAdmin(); });
+document.getElementById("btn-quitter-admin").addEventListener("click", () => {
+  adminActif = false;
+  bandeauAdmin.style.display = "none";
+  afficher();
+});
+
 // ---------- Synchronisation en direct ----------
 const statut = document.getElementById("statut");
-onValue(refPlanning, (instantane) => {
+onValue(ref(db, "planning"), (instantane) => {
   assignations = instantane.val() || {};
   statut.textContent = "";
   statut.classList.remove("erreur");
@@ -241,9 +350,14 @@ onValue(refPlanning, (instantane) => {
 });
 
 function choisir(dateCle, nom) {
-  const action = assignations[dateCle] === nom
-    ? remove(ref(db, "planning/" + dateCle))          // se désinscrire
-    : set(ref(db, "planning/" + dateCle), nom);       // s'inscrire
+  if (estVerrouille(dateCle)) {
+    statut.textContent = "Ce mercredi est verrouillé — contactez l'administrateur.";
+    statut.classList.add("erreur");
+    return;
+  }
+  const action = nomDe(assignations[dateCle]) === nom
+    ? remove(ref(db, "planning/" + dateCle))
+    : set(ref(db, "planning/" + dateCle), { nom: nom, t: serverTimestamp() });
   action.then(() => {
     statut.textContent = "Enregistré ✓";
     statut.classList.remove("erreur");
@@ -254,19 +368,79 @@ function choisir(dateCle, nom) {
   });
 }
 
+// ---------- Export trimestriel : ouverture directe + bouton Imprimer ----------
+function exporterTrimestre(cleT, libelle) {
+  const numeros = calculerNumeros();
+  let lignes = "";
+  tousMercredis.forEach((d) => {
+    if (trimestreDe(cleMois(d)).cle !== cleT) return;
+    const k = cleDate(d);
+    const nom = nomDe(assignations[k]);
+    const num = numeros[k];
+    const scribe = nom === SANS_OBJET
+      ? "<em>Sans objet (pas de réunion)</em>"
+      : nom
+      ? nom.replace(/</g, "&lt;")
+      : "<em>À pourvoir</em>";
+    lignes += "<tr><td>" + formatJourComplet(d) + "</td><td style='text-align:center'>" +
+      (num === null ? "—" : num) + "</td><td>" + scribe + "</td></tr>";
+  });
+  const genere = new Date().toLocaleDateString("fr-BE",
+    { day: "numeric", month: "long", year: "numeric" });
+  const nomFichier = "Rotary_scribes_" + libelle.replace(/ /g, "_") + ".html";
+  const doc = "<!DOCTYPE html><html lang='fr'><head><meta charset='UTF-8'>" +
+    "<title>Scribes — " + libelle + "</title><style>" +
+    "body{font-family:Georgia,'Times New Roman',serif;color:#1B2A4A;max-width:700px;margin:40px auto;padding:0 20px}" +
+    "h1{color:#17458F;font-size:24px;margin-bottom:2px}h2{color:#F7A81B;font-size:19px;margin-top:0;font-weight:600}" +
+    ".actions{margin:18px 0}" +
+    ".actions button{font-size:18px;padding:12px 26px;margin-right:12px;border:none;border-radius:10px;cursor:pointer;font-family:inherit}" +
+    "#btn-imprimer{background:#17458F;color:white;font-weight:700}" +
+    "#btn-enregistrer{background:#EEF2F9;color:#17458F;border:2px solid #17458F}" +
+    "table{border-collapse:collapse;width:100%;margin-top:8px;font-size:17px}" +
+    "th,td{border:1px solid #9AA7C4;padding:9px 12px;text-align:left}" +
+    "th{background:#EEF2F9;color:#17458F}em{color:#8A93A6}" +
+    "p.pied{margin-top:24px;font-size:14px;color:#5A6B8C}" +
+    "@media print{.actions{display:none}}" +
+    "</style></head><body>" +
+    "<h1>Rotary Club Rhode-Saint-Genèse</h1>" +
+    "<h2>Planning des scribes — " + libelle + "</h2>" +
+    "<div class='actions'>" +
+    "<button id='btn-imprimer' onclick='window.print()'>🖨 Imprimer</button>" +
+    "<button id='btn-enregistrer'>💾 Enregistrer une copie</button>" +
+    "</div>" +
+    "<table><tr><th>Mercredi</th><th>N° rapport</th><th>Scribe</th></tr>" +
+    lignes + "</table>" +
+    "<p class='pied'>Document généré le " + genere + ".</p>" +
+    "<script>document.getElementById('btn-enregistrer').addEventListener('click',function(){" +
+    "var b=new Blob(['<!DOCTYPE html>'+document.documentElement.outerHTML],{type:'text/html;charset=utf-8'});" +
+    "var a=document.createElement('a');a.href=URL.createObjectURL(b);" +
+    "a.download='" + nomFichier + "';document.body.appendChild(a);a.click();" +
+    "document.body.removeChild(a);URL.revokeObjectURL(a.href);});" +
+    "<\/script></body></html>";
+  const fenetre = window.open("", "_blank");
+  if (!fenetre) {
+    statut.textContent = "Fenêtre bloquée : autorisez les pop-ups pour ce site.";
+    statut.classList.add("erreur");
+    return;
+  }
+  fenetre.document.write(doc);
+  fenetre.document.close();
+}
+
 // ---------- Affichage ----------
 function compteurTrimestre(cleT) {
   const compte = {};
   SCRIBES.forEach((s) => (compte[s] = 0));
-  mercredis.forEach((d) => {
+  tousMercredis.forEach((d) => {
     if (trimestreDe(cleMois(d)).cle !== cleT) return;
-    const v = assignations[cleDate(d)];
+    const v = nomDe(assignations[cleDate(d)]);
     if (v && compte[v] !== undefined) compte[v] += 1;
   });
   return compte;
 }
 
 function afficher() {
+  const numeros = calculerNumeros();
   const conteneur = document.getElementById("liste-mois");
   conteneur.innerHTML = "";
   let trimestrePrecedent = null;
@@ -279,18 +453,27 @@ function afficher() {
       const compte = compteurTrimestre(t.cle);
       const bandeau = document.createElement("div");
       bandeau.className = "trimestre";
-      bandeau.innerHTML = "<strong class='titre'></strong>";
-      bandeau.querySelector(".titre").textContent = libelleTrimestre(t);
+      const titre = document.createElement("strong");
+      titre.className = "titre";
+      titre.textContent = libelleTrimestre(t);
+      bandeau.appendChild(titre);
       SCRIBES.forEach((s) => {
         const p = document.createElement("span");
         p.className = "pastille";
         p.textContent = s + " : " + compte[s];
         bandeau.appendChild(p);
       });
+      const btnExport = document.createElement("button");
+      btnExport.className = "btn-export";
+      btnExport.textContent = "🖨 Exporter";
+      btnExport.title = "Ouvrir le récapitulatif du trimestre pour l'imprimer ou l'enregistrer";
+      btnExport.addEventListener("click", () =>
+        exporterTrimestre(t.cle, libelleTrimestre(t)));
+      bandeau.appendChild(btnExport);
       conteneur.appendChild(bandeau);
     }
 
-    const complet = parMois[m].every((d) => assignations[cleDate(d)]);
+    const complet = parMois[m].every((d) => nomDe(assignations[cleDate(d)]));
     const volet = document.createElement("button");
     volet.className = "volet-mois" + (complet ? " complet" : "") +
       (moisOuverts[m] ? " ouvert" : "");
@@ -307,7 +490,9 @@ function afficher() {
 
     parMois[m].forEach((date) => {
       const k = cleDate(date);
-      const assigne = assignations[k];
+      const assigne = nomDe(assignations[k]);
+      const verrouille = estVerrouille(k);
+      const numero = numeros[k];
       const bloc = document.createElement("div");
       bloc.className = "semaine" +
         (assigne === SANS_OBJET ? " sans-objet" : assigne ? " prise" : "");
@@ -315,10 +500,21 @@ function afficher() {
       const titre = document.createElement("div");
       titre.className = "date";
       titre.textContent = formatJour(date);
+      if (numero !== null) {
+        const badge = document.createElement("span");
+        badge.className = "numero";
+        badge.textContent = "Rapport n° " + numero;
+        titre.appendChild(badge);
+      }
       if (!assigne) {
         const badge = document.createElement("span");
         badge.className = "a-pourvoir";
         badge.textContent = "— à pourvoir";
+        titre.appendChild(badge);
+      } else if (verrouille) {
+        const badge = document.createElement("span");
+        badge.className = "verrou";
+        badge.textContent = "🔒 verrouillé";
         titre.appendChild(badge);
       }
       bloc.appendChild(titre);
@@ -331,7 +527,8 @@ function afficher() {
         b.className = "btn-scribe" + (nom === SANS_OBJET ? " so" : "") +
           (actif ? " actif" : "");
         b.textContent = actif ? "✓ " + nom : nom;
-        b.addEventListener("click", () => choisir(k, nom));
+        if (verrouille) b.disabled = true;
+        else b.addEventListener("click", () => choisir(k, nom));
         rangee.appendChild(b);
       });
       bloc.appendChild(rangee);
@@ -339,6 +536,9 @@ function afficher() {
     });
   });
 }
+
+// Réaffichage périodique pour que les verrous s'activent d'eux-mêmes
+setInterval(() => { if (Object.keys(assignations).length) afficher(); }, 60000);
 </script>
 </body>
 </html>
